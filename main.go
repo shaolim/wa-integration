@@ -50,6 +50,8 @@ func main() {
 
 	// handle the webhook
 	r.Post("/webhook", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("go")
+
 		// Read the raw body
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -59,6 +61,8 @@ func main() {
 		}
 		defer r.Body.Close()
 
+		fmt.Println("go here")
+
 		// Validate the HMAC signature
 		signature := r.Header.Get("X-Hub-Signature-256")
 		if signature == "" {
@@ -67,24 +71,30 @@ func main() {
 			http.Error(w, "Missing signature", http.StatusUnauthorized)
 			return
 		}
+		fmt.Println("go here 1")
+
 		if os.Getenv("WHATSAPP_APP_SECRET") == "" {
 			fmt.Println("webhook POST: WHATSAPP_APP_SECRET is not set")
 			log.Println("webhook POST: WHATSAPP_APP_SECRET is not set")
 			http.Error(w, "Server misconfiguration", http.StatusInternalServerError)
 			return
 		}
+
+		fmt.Println("go here 2")
 		if !validateSignature(body, signature) {
-			fmt.Println("webhook POST: signature mismatch (got %s)", signature)
+			fmt.Printf("webhook POST: signature mismatch (got %s) \n", signature)
 			log.Printf("webhook POST: signature mismatch (got %s)", signature)
 			http.Error(w, "Invalid signature", http.StatusUnauthorized)
 			return
 		}
 
+		fmt.Println("success")
+
 		// Respond 200 immediately (process async in production)
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprint(w, "OK")
 
-		go processPayload(body)
+		// go processPayload(body)
 	})
 
 	err := http.ListenAndServe(":8080", r)
