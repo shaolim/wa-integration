@@ -56,7 +56,18 @@ func main() {
 
 		// Validate the HMAC signature
 		signature := r.Header.Get("X-Hub-Signature-256")
+		if signature == "" {
+			log.Println("webhook POST: missing X-Hub-Signature-256 header")
+			http.Error(w, "Missing signature", http.StatusUnauthorized)
+			return
+		}
+		if os.Getenv("WHATSAPP_APP_SECRET") == "" {
+			log.Println("webhook POST: WHATSAPP_APP_SECRET is not set")
+			http.Error(w, "Server misconfiguration", http.StatusInternalServerError)
+			return
+		}
 		if !validateSignature(body, signature) {
+			log.Printf("webhook POST: signature mismatch (got %s)", signature)
 			http.Error(w, "Invalid signature", http.StatusUnauthorized)
 			return
 		}
