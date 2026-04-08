@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -20,6 +21,10 @@ func main() {
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
+
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
 
 	// health check
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -46,50 +51,46 @@ func main() {
 
 	// handle the webhook
 	r.Post("/webhook", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("go")
+		rr := &responseRecorder{ResponseWriter: w, statusCode: http.StatusOK}
+		defer func() {
+			log.Printf("webhook POST: response status=%d body=%q", rr.statusCode, rr.body.String())
+		}()
 
 		// Read the raw body
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
-			fmt.Println("Failed to read body")
-			http.Error(w, "Failed to read body", http.StatusBadRequest)
+			http.Error(rr, "Failed to read body", http.StatusBadRequest)
 			return
 		}
 		defer r.Body.Close()
 
-		fmt.Println("go here")
+		log.Printf("webhook POST: received body=%s", string(body))
 
 		// Validate the HMAC signature
 		signature := r.Header.Get("X-Hub-Signature-256")
 		if signature == "" {
-			fmt.Println("webhook POST: missing X-Hub-Signature-256 header")
 			log.Println("webhook POST: missing X-Hub-Signature-256 header")
-			http.Error(w, "Missing signature", http.StatusUnauthorized)
+			http.Error(rr, "Missing signature", http.StatusUnauthorized)
 			return
 		}
-		fmt.Println("go here 1")
 
 		if os.Getenv("WHATSAPP_APP_SECRET") == "" {
-			fmt.Println("webhook POST: WHATSAPP_APP_SECRET is not set")
 			log.Println("webhook POST: WHATSAPP_APP_SECRET is not set")
-			http.Error(w, "Server misconfiguration", http.StatusInternalServerError)
+			http.Error(rr, "Server misconfiguration", http.StatusInternalServerError)
 			return
 		}
 
-		fmt.Println("go here 2")
 		if !validateSignature(body, signature) {
-			fmt.Printf("webhook POST: signature mismatch (got %s) \n", signature)
 			log.Printf("webhook POST: signature mismatch (got %s)", signature)
-			http.Error(w, "Invalid signature", http.StatusUnauthorized)
+			http.Error(rr, "Invalid signature", http.StatusUnauthorized)
 			return
 		}
-
-		fmt.Println("success")
 
 		// Respond 200 immediately (process async in production)
-		w.WriteHeader(http.StatusOK)
+		rr.WriteHeader(http.StatusOK)
+		fmt.Fprint(rr, "OK")
 
-		// go processPayload(body)
+		go processPayload(body)
 	})
 
 	err := http.ListenAndServe(":8080", r)
@@ -118,6 +119,22 @@ func validateSignature(body []byte, signature string) bool {
 
 	// Use constant-time comparison to prevent timing attacks
 	return hmac.Equal([]byte(computedHash), []byte(expectedHash))
+}
+
+type responseRecorder struct {
+	http.ResponseWriter
+	statusCode int
+	body       bytes.Buffer
+}
+
+func (rr *responseRecorder) WriteHeader(code int) {
+	rr.statusCode = code
+	rr.ResponseWriter.WriteHeader(code)
+}
+
+func (rr *responseRecorder) Write(b []byte) (int, error) {
+	rr.body.Write(b)
+	return rr.ResponseWriter.Write(b)
 }
 
 func processPayload(body []byte) {
