@@ -18,10 +18,6 @@ import (
 func main() {
 	fmt.Println("hello world")
 
-	fmt.Println("app secret: ", os.Getenv("WHATSAPP_APP_SECRET"))
-	fmt.Println("access token: ", os.Getenv("WHATSAPP_ACCESS_TOKEN"))
-	fmt.Println("verify token: ", os.Getenv("WHATSAPP_VERIFY_TOKEN"))
-
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 
