@@ -18,6 +18,10 @@ import (
 func main() {
 	fmt.Println("hello world")
 
+	fmt.Println("app secret: ", os.Getenv("WHATSAPP_APP_SECRET"))
+	fmt.Println("access token: ", os.Getenv("WHATSAPP_ACCESS_TOKEN"))
+	fmt.Println("verify token: ", os.Getenv("WHATSAPP_VERIFY_TOKEN"))
+
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 
@@ -49,6 +53,7 @@ func main() {
 		// Read the raw body
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
+			fmt.Println("Failed to read body")
 			http.Error(w, "Failed to read body", http.StatusBadRequest)
 			return
 		}
@@ -57,16 +62,19 @@ func main() {
 		// Validate the HMAC signature
 		signature := r.Header.Get("X-Hub-Signature-256")
 		if signature == "" {
+			fmt.Println("webhook POST: missing X-Hub-Signature-256 header")
 			log.Println("webhook POST: missing X-Hub-Signature-256 header")
 			http.Error(w, "Missing signature", http.StatusUnauthorized)
 			return
 		}
 		if os.Getenv("WHATSAPP_APP_SECRET") == "" {
+			fmt.Println("webhook POST: WHATSAPP_APP_SECRET is not set")
 			log.Println("webhook POST: WHATSAPP_APP_SECRET is not set")
 			http.Error(w, "Server misconfiguration", http.StatusInternalServerError)
 			return
 		}
 		if !validateSignature(body, signature) {
+			fmt.Println("webhook POST: signature mismatch (got %s)", signature)
 			log.Printf("webhook POST: signature mismatch (got %s)", signature)
 			http.Error(w, "Invalid signature", http.StatusUnauthorized)
 			return
