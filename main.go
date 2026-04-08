@@ -88,7 +88,6 @@ func main() {
 
 		// Respond 200 immediately (process async in production)
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, "OK")
 
 		// go processPayload(body)
 	})
