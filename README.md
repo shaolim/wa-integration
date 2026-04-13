@@ -9,3 +9,7 @@ curl -i -X POST \
   -H 'Content-Type: application/json' \
   -d '{ "messaging_product": "whatsapp", "to": "{TO_PHONE_NUMBER}", "type": "template", "template": { "name": "hello_world", "language": { "code": "en_US" } } }'
 ```
+
+- chat history
+  - store all chat history on database
+- download file from whatsapp and store it on our own storage
