@@ -7,3 +7,6 @@ var LoginHTML string
 
 //go:embed files.html
 var FilesHTML string
+
+//go:embed file_detail.html
+var FileDetailHTML string

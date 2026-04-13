@@ -30,7 +30,7 @@
             {{if .Files}}
                 {{range .Files}}
                 <tr>
-                    <td>{{.Key}}</td>
+                    <td><a href="/file?key={{.Key}}">{{.Key}}</a></td>
                     <td>{{.Size}} bytes</td>
                     <td>{{.LastModified.Format "2006-01-02 15:04:05"}}</td>
                 </tr>

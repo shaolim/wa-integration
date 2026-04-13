@@ -60,6 +60,19 @@ func (u *S3Uploader) ListObjects(ctx context.Context) ([]Object, error) {
 	return objects, nil
 }
 
+// GetPresignedURL returns a temporary URL for reading the object at key.
+func (u *S3Uploader) GetPresignedURL(ctx context.Context, key string, expires time.Duration) (string, error) {
+	presignClient := s3.NewPresignClient(u.client)
+	req, err := presignClient.PresignGetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(u.bucket),
+		Key:    aws.String(key),
+	}, s3.WithPresignExpires(expires))
+	if err != nil {
+		return "", fmt.Errorf("presign get object key=%s: %w", key, err)
+	}
+	return req.URL, nil
+}
+
 // Upload puts data into S3 at the given key with the provided MIME type.
 func (u *S3Uploader) Upload(ctx context.Context, key string, data []byte, mimeType string) error {
 	_, err := u.client.PutObject(ctx, &s3.PutObjectInput{

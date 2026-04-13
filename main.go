@@ -65,6 +65,7 @@ func main() {
 	r.Group(func(r chi.Router) {
 		r.Use(sess.RequireAuth)
 		r.Get("/", filesHandler.ServeFiles)
+		r.Get("/file", filesHandler.ServeFileDetail)
 	})
 
 	err = http.ListenAndServe(":8080", r)
