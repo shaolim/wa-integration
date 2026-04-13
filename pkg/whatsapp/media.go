@@ -1,4 +1,4 @@
-package webhook
+package whatsapp
 
 import (
 	"encoding/json"
@@ -23,7 +23,7 @@ type mediaInfoResponse struct {
 // WhatsApp media download is a two-step process:
 //  1. GET /v25.0/{media-id} → resolves the temporary download URL
 //  2. GET {url}             → streams the actual file bytes
-func (w *Webhook) DownloadMedia(mediaID string) ([]byte, string, error) {
+func (w *WAClient) DownloadMedia(mediaID string) ([]byte, string, error) {
 	info, err := w.getMediaInfo(mediaID)
 	if err != nil {
 		return nil, "", fmt.Errorf("get media info: %w", err)
@@ -37,12 +37,12 @@ func (w *Webhook) DownloadMedia(mediaID string) ([]byte, string, error) {
 	return data, info.MimeType, nil
 }
 
-func (w *Webhook) getMediaInfo(mediaID string) (*mediaInfoResponse, error) {
+func (w *WAClient) getMediaInfo(mediaID string) (*mediaInfoResponse, error) {
 	req, err := http.NewRequest(http.MethodGet, graphAPIBaseURL+"/"+mediaID, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+w.conf.WAAccessToken)
+	req.Header.Set("Authorization", "Bearer "+w.WAAccessToken)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -63,12 +63,12 @@ func (w *Webhook) getMediaInfo(mediaID string) (*mediaInfoResponse, error) {
 	return &info, nil
 }
 
-func (w *Webhook) fetchMediaBytes(url string) ([]byte, error) {
+func (w *WAClient) fetchMediaBytes(url string) ([]byte, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+w.conf.WAAccessToken)
+	req.Header.Set("Authorization", "Bearer "+w.WAAccessToken)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -86,7 +86,7 @@ func (w *Webhook) fetchMediaBytes(url string) ([]byte, error) {
 
 // mediaIDFromMessage extracts the media ID from a media-type message.
 // Returns an empty string for non-media message types.
-func mediaIDFromMessage(msg Message) string {
+func MediaIDFromMessage(msg Message) string {
 	switch msg.Type {
 	case "image":
 		if msg.Image != nil {

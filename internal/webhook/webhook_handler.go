@@ -3,35 +3,15 @@ package webhook
 import (
 	"bytes"
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 
-	"github.com/shaolim/wa-integration/internal/config"
+	"github.com/shaolim/wa-integration/pkg/whatsapp"
 )
 
 // TODO: create WA client
-
-// Uploader stores a media file at the given key.
-type Uploader interface {
-	Upload(ctx context.Context, key string, data []byte, mimeType string) error
-}
-
-type Webhook struct {
-	conf     *config.Config
-	uploader Uploader
-}
-
-func New(conf *config.Config, uploader Uploader) *Webhook {
-	return &Webhook{
-		conf:     conf,
-		uploader: uploader,
-	}
-}
 
 func (w *Webhook) VerifyWebhook(rw http.ResponseWriter, r *http.Request) {
 	mode := r.URL.Query().Get("hub.mode")
@@ -85,7 +65,7 @@ func (w *Webhook) HandleWebhook(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !w.validateSignature(body, signature) {
+	if !w.waClient.ValidateSignature(body, signature) {
 		slog.Warn("webhook POST: signature mismatch", slog.String("signature", signature))
 		http.Error(rr, "Invalid signature", http.StatusUnauthorized)
 		return
@@ -97,25 +77,8 @@ func (w *Webhook) HandleWebhook(rw http.ResponseWriter, r *http.Request) {
 	go w.processPayload(body)
 }
 
-func (w *Webhook) validateSignature(body []byte, signature string) bool {
-	if signature == "" {
-		return false
-	}
-
-	if len(signature) < 7 || signature[:7] != "sha256=" {
-		return false
-	}
-	expectedHash := signature[7:]
-
-	mac := hmac.New(sha256.New, []byte(w.conf.WAAppSecret))
-	mac.Write(body)
-	computedHash := hex.EncodeToString(mac.Sum(nil))
-
-	return hmac.Equal([]byte(computedHash), []byte(expectedHash))
-}
-
 func (w *Webhook) processPayload(body []byte) {
-	payload, err := Parse(body)
+	payload, err := whatsapp.Parse(body)
 	if err != nil {
 		slog.Error("processPayload: failed to parse body", slog.Any("error", err))
 		return
@@ -124,12 +87,12 @@ func (w *Webhook) processPayload(body []byte) {
 	for _, entry := range payload.Entry {
 		for _, change := range entry.Changes {
 			for _, msg := range change.Value.Messages {
-				mediaID := mediaIDFromMessage(msg)
+				mediaID := whatsapp.MediaIDFromMessage(msg)
 				if mediaID == "" {
 					continue
 				}
 
-				data, mimeType, err := w.DownloadMedia(mediaID)
+				data, mimeType, err := w.waClient.DownloadMedia(mediaID)
 				if err != nil {
 					slog.Error("processPayload: download media", slog.String("media_id", mediaID), slog.Any("error", err))
 					continue
