@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/joho/godotenv"
 	"github.com/shaolim/wa-integration/internal/config"
+	"github.com/shaolim/wa-integration/internal/files"
 	"github.com/shaolim/wa-integration/internal/session"
 	"github.com/shaolim/wa-integration/internal/webhook"
 	"github.com/shaolim/wa-integration/pkg/storage"
@@ -18,10 +19,7 @@ import (
 )
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
+	_ = godotenv.Load()
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -44,6 +42,7 @@ func main() {
 	waClient := whatsapp.New(cfg.WAAccessToken, cfg.WAVerifyToken, cfg.WAAppSecret)
 
 	sess := session.NewHandler(cfg.Username, cfg.UserPassword)
+	filesHandler := files.NewHandler(uploader)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -65,9 +64,7 @@ func main() {
 	// protected routes
 	r.Group(func(r chi.Router) {
 		r.Use(sess.RequireAuth)
-		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusOK)
-		})
+		r.Get("/", filesHandler.ServeFiles)
 	})
 
 	err = http.ListenAndServe(":8080", r)

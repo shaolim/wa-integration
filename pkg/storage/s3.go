@@ -4,12 +4,19 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
+
+type Object struct {
+	Key          string
+	Size         int64
+	LastModified time.Time
+}
 
 type S3Uploader struct {
 	client *s3.Client
@@ -31,6 +38,26 @@ func NewS3Uploader(ctx context.Context, region, bucket, accessKey, secretKey str
 		client: s3.NewFromConfig(cfg),
 		bucket: bucket,
 	}, nil
+}
+
+// ListObjects returns all objects in the bucket.
+func (u *S3Uploader) ListObjects(ctx context.Context) ([]Object, error) {
+	out, err := u.client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+		Bucket: aws.String(u.bucket),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("s3 list objects: %w", err)
+	}
+
+	objects := make([]Object, 0, len(out.Contents))
+	for _, obj := range out.Contents {
+		objects = append(objects, Object{
+			Key:          aws.ToString(obj.Key),
+			Size:         aws.ToInt64(obj.Size),
+			LastModified: aws.ToTime(obj.LastModified),
+		})
+	}
+	return objects, nil
 }
 
 // Upload puts data into S3 at the given key with the provided MIME type.
