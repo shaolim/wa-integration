@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -15,13 +16,20 @@ import (
 
 // TODO: create WA client
 
-type Webhook struct {
-	conf *config.Config
+// Uploader stores a media file at the given key.
+type Uploader interface {
+	Upload(ctx context.Context, key string, data []byte, mimeType string) error
 }
 
-func New(conf *config.Config) *Webhook {
+type Webhook struct {
+	conf     *config.Config
+	uploader Uploader
+}
+
+func New(conf *config.Config, uploader Uploader) *Webhook {
 	return &Webhook{
-		conf: conf,
+		conf:     conf,
+		uploader: uploader,
 	}
 }
 
@@ -127,8 +135,15 @@ func (w *Webhook) processPayload(body []byte) {
 					continue
 				}
 
-				slog.Info("processPayload: downloaded media",
+				key := "media/" + mediaID
+				if err := w.uploader.Upload(context.Background(), key, data, mimeType); err != nil {
+					slog.Error("processPayload: upload media", slog.String("media_id", mediaID), slog.Any("error", err))
+					continue
+				}
+
+				slog.Info("processPayload: uploaded media",
 					slog.String("media_id", mediaID),
+					slog.String("s3_key", key),
 					slog.String("mime_type", mimeType),
 					slog.Int("size", len(data)),
 				)

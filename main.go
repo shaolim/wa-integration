@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"log"
 	"log/slog"
@@ -9,20 +10,33 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/shaolim/wa-integration/internal/config"
+	"github.com/shaolim/wa-integration/internal/storage"
 	"github.com/shaolim/wa-integration/internal/webhook"
 )
 
 func main() {
-	config, err := config.Load()
+	cfg, err := config.Load()
 	if err != nil {
 		slog.Error("failed to load config", slog.Any("error", err))
+		panic(err)
+	}
+
+	uploader, err := storage.NewS3Uploader(
+		context.Background(),
+		cfg.S3Region,
+		cfg.S3BucketName,
+		cfg.S3AccessKey,
+		cfg.S3SecretAccessKey,
+	)
+	if err != nil {
+		slog.Error("failed to create s3 uploader", slog.Any("error", err))
 		panic(err)
 	}
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 
-	webhook := webhook.New(config)
+	wh := webhook.New(cfg, uploader)
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -34,8 +48,8 @@ func main() {
 		w.Write([]byte(`{"status":"ok"}`))
 	})
 
-	r.Get("/webhook", webhook.VerifyWebhook)
-	r.Post("/webhook", webhook.HandleWebhook)
+	r.Get("/webhook", wh.VerifyWebhook)
+	r.Post("/webhook", wh.HandleWebhook)
 
 	err = http.ListenAndServe(":8080", r)
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {

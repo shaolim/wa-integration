@@ -19,6 +19,7 @@ type Config struct {
 	S3SecretAccessKey string
 	S3AccessKey       string
 	S3Region          string
+	S3BucketName      string
 }
 
 func Load() (*Config, error) {
@@ -59,6 +60,12 @@ func Load() (*Config, error) {
 			return
 		}
 
+		s3BucketName := os.Getenv("S3_BUCKET_NAME")
+		if s3BucketName == "" {
+			loadErr = fmt.Errorf("S3_BUCKET_NAME env can't be empty")
+			return
+		}
+
 		defaultConfig = &Config{
 			WAVerifyToken:     verifyToken,
 			WAAccessToken:     accessToken,
@@ -66,6 +73,7 @@ func Load() (*Config, error) {
 			S3SecretAccessKey: s3SecretAccessToken,
 			S3AccessKey:       s3AccessKey,
 			S3Region:          s3Region,
+			S3BucketName:      s3BucketName,
 		}
 	})
 
