@@ -60,6 +60,18 @@ func (u *S3Uploader) ListObjects(ctx context.Context) ([]Object, error) {
 	return objects, nil
 }
 
+// GetContentType returns the ContentType stored for the object at key.
+func (u *S3Uploader) GetContentType(ctx context.Context, key string) (string, error) {
+	out, err := u.client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(u.bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return "", fmt.Errorf("s3 head object key=%s: %w", key, err)
+	}
+	return aws.ToString(out.ContentType), nil
+}
+
 // GetPresignedURL returns a temporary URL for reading the object at key.
 func (u *S3Uploader) GetPresignedURL(ctx context.Context, key string, expires time.Duration) (string, error) {
 	presignClient := s3.NewPresignClient(u.client)
